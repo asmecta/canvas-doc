@@ -1,0 +1,6 @@
+{
+  "name": "CanvasDoc",
+  "description": "A high-performance, canvas-based online word processor with rich text, images, and tables.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
