@@ -2,21 +2,43 @@
 
 import React, { useRef } from 'react';
 import { 
-  Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight, 
+  Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight, AlignJustify,
   Image as ImageIcon, Table as TableIcon, Type, Undo, Redo,
-  ChevronDown, Download, Upload, History, Save
+  ChevronDown, Download, Upload, History, Save, List, ListOrdered,
+  Pipette, Highlighter, ListTree, Languages
 } from 'lucide-react';
 import { useEditorStore } from '@/lib/editor/store';
-import { ElementType } from '@/lib/editor/types';
+import { ElementType, ParagraphType } from '@/lib/editor/types';
 import { useEditorExport } from '@/lib/editor/export';
 
 export const Toolbar = () => {
-  const { undo, redo, addElement, setHistoryOpen, saveVersion } = useEditorStore();
+  const { 
+    elements, selection, undo, redo, addElement, insertElement,
+    setHistoryOpen, saveVersion, toggleSelectionStyle,
+    updateSelectionBlockProperty, showAuxiliaryMarks, setShowAuxiliaryMarks
+  } = useEditorStore();
   const { exportToPDF, exportToDOCX, importFromTXT, importFromDOCX } = useEditorExport();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Derive current style from selection for toolbar feedback
+  const currentStyle = React.useMemo(() => {
+    if (!selection) return {};
+    const start = selection.isBackward ? selection.focus : selection.anchor;
+    const block = elements[start.blockIndex];
+    if (block && block.type === ElementType.TEXT) {
+      return block.runs[start.runIndex]?.style || {};
+    }
+    return {};
+  }, [elements, selection]);
+
+  const currentBlock = React.useMemo(() => {
+    if (!selection) return null;
+    const start = selection.isBackward ? selection.focus : selection.anchor;
+    return elements[start.blockIndex] as any;
+  }, [elements, selection]);
+
   const handleAddImage = () => {
-    addElement({
+    insertElement({
       type: ElementType.IMAGE,
       src: 'https://picsum.photos/seed/word/800/400',
       width: 400,
@@ -54,6 +76,9 @@ export const Toolbar = () => {
     exportToPDF(canvases as HTMLCanvasElement[]);
   };
 
+  const fonts = ['Inter', 'Arial', 'Times New Roman', 'Courier New', 'Georgia', 'Verdana'];
+  const fontSizes = [8, 9, 10, 11, 12, 14, 16, 18, 24, 30, 36, 48, 60, 72];
+
   return (
     <div className="h-10 flex items-center px-3 bg-[#edf2fa] mx-4 my-2 rounded-full border border-[#dadce0] shrink-0 gap-1 shadow-sm sticky top-0 z-50 overflow-x-auto">
       <input 
@@ -64,9 +89,9 @@ export const Toolbar = () => {
         className="hidden" 
       />
 
-      <div className="flex items-center px-2 border-r border-[#dadce0] gap-0.5 h-6">
-        <ToolbarButton onClick={undo} icon={<Undo size={16} />} title="Undo" />
-        <ToolbarButton onClick={redo} icon={<Redo size={16} />} title="Redo" />
+      <div className="flex items-center px-2 border-r border-[#dadce0] gap-0.5 h-6 text-gray-600">
+        <ToolbarButton onClick={undo} icon={<Undo size={16} />} title="Undo (Ctrl+Z)" />
+        <ToolbarButton onClick={redo} icon={<Redo size={16} />} title="Redo (Ctrl+Y)" />
         <ToolbarButton onClick={() => setHistoryOpen(true)} icon={<History size={16} />} title="Version History" />
         <ToolbarButton onClick={handleSaveVersion} icon={<Save size={16} />} title="Save Version" />
       </div>
@@ -77,28 +102,140 @@ export const Toolbar = () => {
         <ToolbarButton onClick={exportToDOCX} icon={<div className="text-[10px] font-bold">DOCX</div>} title="Export DOCX" />
       </div>
 
-      <div className="flex items-center px-2 border-r border-[#dadce0] text-xs font-semibold gap-2 h-6">
-        <div className="flex items-center px-3 py-1 hover:bg-gray-200 rounded cursor-pointer gap-2 transition-colors whitespace-nowrap">
-          <span>Normal text</span>
-          <ChevronDown size={12} className="text-gray-500" />
+      <div className="flex items-center px-2 border-r border-[#dadce0] gap-1 h-6 shrink-0">
+        <select 
+          className="bg-transparent text-[11px] font-medium outline-none cursor-pointer hover:bg-gray-200 rounded px-1 max-w-[100px] truncate"
+          value={currentStyle.fontFamily || 'Inter'}
+          onChange={(e) => toggleSelectionStyle({ fontFamily: e.target.value })}
+        >
+          {fonts.map(font => <option key={font} value={font}>{font}</option>)}
+        </select>
+        <div className="w-px h-4 bg-gray-300 mx-1" />
+        <select 
+          className="bg-transparent text-[11px] font-medium outline-none cursor-pointer hover:bg-gray-200 rounded px-1"
+          value={currentStyle.fontSize || 16}
+          onChange={(e) => toggleSelectionStyle({ fontSize: parseInt(e.target.value) })}
+        >
+          {fontSizes.map(size => <option key={size} value={size}>{size}</option>)}
+        </select>
+      </div>
+
+      <div className="flex items-center px-2 border-r border-[#dadce0] gap-0.5 h-6 shrink-0">
+        <ToolbarButton 
+          onClick={() => toggleSelectionStyle({ fontWeight: 'bold' })} 
+          active={currentStyle.fontWeight === 'bold'}
+          icon={<Bold size={16} />} 
+          title="Bold (Ctrl+B)" 
+        />
+        <ToolbarButton 
+          onClick={() => toggleSelectionStyle({ fontStyle: 'italic' })} 
+          active={currentStyle.fontStyle === 'italic'}
+          icon={<Italic size={16} />} 
+          title="Italic (Ctrl+I)" 
+        />
+        <ToolbarButton 
+          onClick={() => toggleSelectionStyle({ textDecoration: 'underline' })} 
+          active={currentStyle.textDecoration === 'underline'}
+          icon={<Underline size={16} />} 
+          title="Underline (Ctrl+U)" 
+        />
+        <ToolbarButton 
+          onClick={() => toggleSelectionStyle({ textDecoration: 'line-through' })} 
+          active={currentStyle.textDecoration === 'line-through'}
+          icon={<div className="scale-90 line-through font-bold">abc</div>} 
+          title="Strikethrough" 
+        />
+        <div className="flex flex-col items-center justify-center -space-y-1 hover:bg-gray-200 rounded px-1 cursor-pointer">
+          <input 
+            type="color" 
+            className="w-4 h-4 opacity-0 absolute cursor-pointer"
+            onChange={(e) => toggleSelectionStyle({ color: e.target.value })}
+          />
+          <Pipette size={14} className="text-[#444]" />
+          <div className="w-4 h-[2px]" style={{ backgroundColor: currentStyle.color || '#000' }} />
+        </div>
+        <div className="flex flex-col items-center justify-center -space-y-1 hover:bg-gray-200 rounded px-1 cursor-pointer ml-1">
+          <input 
+            type="color" 
+            className="w-4 h-4 opacity-0 absolute cursor-pointer"
+            onChange={(e) => toggleSelectionStyle({ backgroundColor: e.target.value })}
+          />
+          <Highlighter size={14} className="text-[#444]" />
+          <div className="w-4 h-[2px]" style={{ backgroundColor: currentStyle.backgroundColor || 'transparent' }} />
         </div>
       </div>
 
-      <div className="flex items-center px-2 border-r border-[#dadce0] gap-0.5 h-6">
-        <ToolbarButton icon={<Bold size={16} />} title="Bold" />
-        <ToolbarButton icon={<Italic size={16} />} title="Italic" />
-        <ToolbarButton icon={<Underline size={16} />} title="Underline" />
+      <div className="flex items-center px-2 border-r border-[#dadce0] gap-0.5 h-6 shrink-0">
+        <select 
+          className="bg-transparent text-[11px] font-medium outline-none cursor-pointer hover:bg-gray-200 rounded px-1"
+          value={currentBlock?.paragraphType || ParagraphType.NORMAL}
+          onChange={(e) => updateSelectionBlockProperty({ paragraphType: e.target.value as ParagraphType })}
+        >
+          <option value={ParagraphType.NORMAL}>Normal Text</option>
+          <option value={ParagraphType.HEADING_1}>Heading 1</option>
+          <option value={ParagraphType.HEADING_2}>Heading 2</option>
+          <option value={ParagraphType.HEADING_3}>Heading 3</option>
+        </select>
       </div>
 
-      <div className="flex items-center px-2 border-r border-[#dadce0] gap-0.5 h-6">
-        <ToolbarButton icon={<AlignLeft size={16} />} title="Align Left" />
-        <ToolbarButton icon={<AlignCenter size={16} />} title="Align Center" />
-        <ToolbarButton icon={<AlignRight size={16} />} title="Align Right" />
+      <div className="flex items-center px-2 border-r border-[#dadce0] gap-0.5 h-6 shrink-0">
+        <ToolbarButton 
+          onClick={() => updateSelectionBlockProperty({ alignment: 'left' })}
+          active={currentBlock?.alignment === 'left' || (!currentBlock?.alignment && true)}
+          icon={<AlignLeft size={16} />} 
+          title="Align Left" 
+        />
+        <ToolbarButton 
+          onClick={() => updateSelectionBlockProperty({ alignment: 'center' })}
+          active={currentBlock?.alignment === 'center'}
+          icon={<AlignCenter size={16} />} 
+          title="Align Center" 
+        />
+        <ToolbarButton 
+          onClick={() => updateSelectionBlockProperty({ alignment: 'right' })}
+          active={currentBlock?.alignment === 'right'}
+          icon={<AlignRight size={16} />} 
+          title="Align Right" 
+        />
+        <ToolbarButton 
+          onClick={() => updateSelectionBlockProperty({ alignment: 'justify' })}
+          active={currentBlock?.alignment === 'justify'}
+          icon={<AlignJustify size={16} />} 
+          title="Justify" 
+        />
       </div>
 
-      <div className="flex items-center px-2 gap-1 h-6">
+      <div className="flex items-center px-2 border-r border-[#dadce0] gap-0.5 h-6 shrink-0">
+        <ToolbarButton 
+          onClick={() => updateSelectionBlockProperty({ paragraphType: currentBlock?.paragraphType === ParagraphType.BULLET_LIST ? ParagraphType.NORMAL : ParagraphType.BULLET_LIST })}
+          active={currentBlock?.paragraphType === ParagraphType.BULLET_LIST}
+          icon={<List size={16} />} 
+          title="Bullet List" 
+        />
+        <ToolbarButton 
+          onClick={() => updateSelectionBlockProperty({ paragraphType: currentBlock?.paragraphType === ParagraphType.NUMBER_LIST ? ParagraphType.NORMAL : ParagraphType.NUMBER_LIST })}
+          active={currentBlock?.paragraphType === ParagraphType.NUMBER_LIST}
+          icon={<ListOrdered size={16} />} 
+          title="Numbered List" 
+        />
+        <div className="w-px h-4 bg-gray-300 mx-1" />
+        <ToolbarButton 
+          onClick={() => setShowAuxiliaryMarks(!showAuxiliaryMarks)}
+          active={showAuxiliaryMarks}
+          icon={<span className="font-mono text-xs">¶</span>} 
+          title="Show/Hide Editing Marks" 
+        />
+      </div>
+
+      <div className="flex items-center px-2 border-r border-[#dadce0] gap-1 h-6 shrink-0">
         <ToolbarButton onClick={handleAddImage} icon={<ImageIcon size={16} />} title="Insert Image" />
         <ToolbarButton onClick={handleAddTable} icon={<TableIcon size={16} />} title="Insert Table" />
+        <div className="w-px h-4 bg-gray-300 mx-1" />
+        <ToolbarButton 
+          onClick={() => insertElement({ type: ElementType.PAGE_BREAK })} 
+          icon={<div className="flex flex-col items-center -space-y-1"><div className="w-3 h-0.5 bg-gray-600"></div><div className="text-[8px] font-bold">PAGE</div></div>} 
+          title="Insert Page Break" 
+        />
       </div>
     </div>
   );

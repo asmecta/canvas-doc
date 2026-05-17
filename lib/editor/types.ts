@@ -2,6 +2,7 @@ export enum ElementType {
   TEXT = 'text',
   IMAGE = 'image',
   TABLE = 'table',
+  PAGE_BREAK = 'page_break',
 }
 
 export interface TextStyle {
@@ -11,6 +12,7 @@ export interface TextStyle {
   fontStyle?: 'normal' | 'italic';
   textDecoration?: 'none' | 'underline' | 'line-through';
   color?: string;
+  backgroundColor?: string;
 }
 
 export interface Run {
@@ -18,8 +20,18 @@ export interface Run {
   style: TextStyle;
 }
 
+export enum ParagraphType {
+  NORMAL = 'normal',
+  HEADING_1 = 'h1',
+  HEADING_2 = 'h2',
+  HEADING_3 = 'h3',
+  BULLET_LIST = 'bullet',
+  NUMBER_LIST = 'number',
+}
+
 export interface Paragraph {
   type: ElementType.TEXT;
+  paragraphType?: ParagraphType;
   runs: Run[];
   alignment?: 'left' | 'center' | 'right' | 'justify';
   lineHeight?: number;
@@ -48,7 +60,11 @@ export interface TableElement {
   widths: number[]; // Percentage or absolute
 }
 
-export type EditorElement = Paragraph | ImageElement | TableElement;
+export interface PageBreakElement {
+  type: ElementType.PAGE_BREAK;
+}
+
+export type EditorElement = Paragraph | ImageElement | TableElement | PageBreakElement;
 
 export interface PageConfig {
   width: number;
@@ -60,6 +76,24 @@ export interface PageConfig {
     left: number;
   };
 }
+
+export interface DocumentPosition {
+  blockIndex: number;
+  runIndex: number;
+  offset: number;
+}
+
+export interface Selection {
+  anchor: DocumentPosition;
+  focus: DocumentPosition;
+  isBackward: boolean;
+}
+
+export const comparePositions = (p1: DocumentPosition, p2: DocumentPosition): number => {
+  if (p1.blockIndex !== p2.blockIndex) return p1.blockIndex - p2.blockIndex;
+  if (p1.runIndex !== p2.runIndex) return p1.runIndex - p2.runIndex;
+  return p1.offset - p2.offset;
+};
 
 export const DEFAULT_PAGE_CONFIG: PageConfig = {
   width: 794, // A4 at 96 DPI

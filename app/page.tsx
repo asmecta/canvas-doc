@@ -4,7 +4,9 @@ import React from 'react';
 import { Toolbar } from '@/components/editor/Toolbar';
 import { EditorCanvas } from '@/components/editor/EditorCanvas';
 import { VersionHistory } from '@/components/editor/VersionHistory';
+import { StatusBar } from '@/components/editor/StatusBar';
 import { useEditorStore } from '@/lib/editor/store';
+import { ElementType, ParagraphType } from '@/lib/editor/types';
 import { AnimatePresence } from 'motion/react';
 import { 
   FileText, Search, Settings, HelpCircle, 
@@ -13,7 +15,7 @@ import {
 } from 'lucide-react';
 
 export default function EditorPage() {
-  const { isHistoryOpen, setHistoryOpen } = useEditorStore();
+  const { isHistoryOpen, setHistoryOpen, elements } = useEditorStore();
 
   return (
     <div className="flex flex-col h-screen w-full bg-[#f8f9fa] font-sans overflow-hidden text-[#3c4043]">
@@ -71,13 +73,36 @@ export default function EditorPage() {
         {/* Left Sidebar (Document Outline) */}
         <aside className="w-64 bg-white border-r border-[#dadce0] flex flex-col p-4 shrink-0">
           <span className="text-[11px] font-bold text-[#5f6368] uppercase tracking-wider mb-4 px-2">Document Outline</span>
-          <div className="flex flex-col gap-1 text-[13px]">
-            <OutlineItem title="1. Executive Summary" active />
-            <OutlineItem title="2. Market Analysis" indent />
-            <OutlineItem title="2.1 Consumer Trends" indentDouble />
-            <OutlineItem title="2.2 Competitive Landscape" indentDouble />
-            <OutlineItem title="3. Technical Framework" indent />
-            <OutlineItem title="4. Resource Allocation" indent />
+          <div className="flex-1 overflow-y-auto flex flex-col gap-1 text-[13px]">
+            {elements.map((el, idx) => {
+              if (el.type !== ElementType.TEXT) return null;
+              const text = el.runs.map(r => r.text).join('').trim();
+              if (!text) return null;
+              
+              const pType = (el as any).paragraphType;
+              const isHeading = pType === ParagraphType.HEADING_1 || pType === ParagraphType.HEADING_2 || pType === ParagraphType.HEADING_3;
+              if (!isHeading) return null;
+
+              return (
+                <div 
+                  key={idx}
+                  className={`px-3 py-1.5 rounded cursor-pointer transition-colors text-[#5f6368] hover:text-black hover:bg-gray-50 border-l-2 border-transparent truncate
+                    ${pType === ParagraphType.HEADING_2 ? 'pl-6 text-[12px]' : ''}
+                    ${pType === ParagraphType.HEADING_3 ? 'pl-9 text-[11px]' : ''}
+                  `}
+                >
+                  {text}
+                </div>
+              );
+            })}
+            {elements.filter(el => {
+              const pType = (el as any).paragraphType;
+              return el.type === ElementType.TEXT && (pType === ParagraphType.HEADING_1 || pType === ParagraphType.HEADING_2 || pType === ParagraphType.HEADING_3);
+            }).length === 0 && (
+              <div className="px-3 py-4 text-xs text-gray-400 italic">
+                Add titles or headings to see them in the outline.
+              </div>
+            )}
           </div>
           
           <div className="mt-auto pt-4 border-t border-gray-100 text-[11px] text-[#5f6368] px-2 flex flex-col gap-2">
@@ -97,33 +122,16 @@ export default function EditorPage() {
       </div>
 
       {/* Footer */}
-      <footer className="h-7 bg-white border-t border-[#dadce0] px-4 flex items-center justify-between text-[11px] text-[#5f6368] shrink-0 font-medium">
-        <div>Page 1 of 1  •  142 words</div>
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-1 group cursor-pointer hover:text-black">
-            <div className="w-2 h-2 bg-green-500 rounded-full" />
-            Saved to Drive
-          </div>
-          <div className="flex items-center gap-4">
-            <span className="hover:text-black cursor-pointer">English (US)</span>
-            <div className="flex items-center gap-1 text-black font-semibold">
-              <span className="material-symbols-outlined text-[14px]">edit</span>
-              Editing Mode
-            </div>
-          </div>
-        </div>
-      </footer>
+      <StatusBar />
     </div>
   );
 }
 
-function OutlineItem({ title, active, indent, indentDouble }: { title: string, active?: boolean, indent?: boolean, indentDouble?: boolean }) {
+function OutlineItem({ title, active }: { title: string, active?: boolean }) {
   return (
     <div className={`
       px-3 py-1.5 rounded cursor-pointer transition-colors
       ${active ? 'text-[#1a73e8] font-medium bg-[#e8f0fe] border-l-2 border-[#1a73e8]' : 'text-[#5f6368] hover:text-black hover:bg-gray-50 border-l-2 border-transparent'}
-      ${indent ? 'ml-3' : ''}
-      ${indentDouble ? 'ml-6' : ''}
     `}>
       {title}
     </div>
